@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proportion Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .instructions {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 12px 16px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .proportion-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .fraction {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .fraction input {
+            width: 80px;
+            padding: 12px;
+            font-size: 18px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .fraction input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .fraction input.filled {
+            background: #f8f9ff;
+            border-color: #667eea;
+        }
+
+        .fraction-line {
+            width: 60px;
+            height: 2px;
+            background: #333;
+            margin: 4px 0;
+        }
+
+        .equals {
+            font-size: 32px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .calculate-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .calculate-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .calculate-btn:active {
+            transform: translateY(0);
+        }
+
+        .reset-btn {
+            background: #e0e0e0;
+            color: #555;
+        }
+
+        .reset-btn:hover {
+            background: #d0d0d0;
+        }
+
+        .result {
+            min-height: 60px;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+
+        .result.hidden {
+            display: none;
+        }
+
+        .result-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .proportion-container {
+                gap: 10px;
+            }
+
+            .fraction input {
+                width: 60px;
+                padding: 10px;
+                font-size: 16px;
+            }
+
+            .equals {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Proportion Calculator</h1>
+        <p class="subtitle">Solve for the missing value</p>
+
+        <div class="instructions">
+            Enter any 3 values and leave one empty. Click Calculate to find the missing value.
+        </div>
+
+        <div class="proportion-container">
+            <div class="fraction">
+                <input type="text" id="a" placeholder="a" inputmode="decimal">
+                <div class="fraction-line"></div>
+                <input type="text" id="b" placeholder="b" inputmode="decimal">
+            </div>
+
+            <div class="equals">=</div>
+
+            <div class="fraction">
+                <input type="text" id="c" placeholder="c" inputmode="decimal">
+                <div class="fraction-line"></div>
+                <input type="text" id="d" placeholder="d" inputmode="decimal">
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="calculate-btn" onclick="calculate()">Calculate</button>
+            <button class="reset-btn" onclick="reset()">Reset</button>
+        </div>
+
+        <div id="result" class="result hidden"></div>
+    </div>
+
+    <script>
+        const inputs = ['a', 'b', 'c', 'd'];
+
+        inputs.forEach(id => {
+            const input = document.getElementById(id);
+            input.addEventListener('input', function() {
+                if (this.value.trim()) {
+                    this.classList.add('filled');
+                } else {
+                    this.classList.remove('filled');
+                }
+            });
+        });
+
+        function getValues() {
+            const values = {};
+            inputs.forEach(id => {
+                const value = document.getElementById(id).value.trim();
+                values[id] = value === '' ? null : parseFloat(value);
+            });
+            return values;
+        }
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = 'result ' + type;
+        }
+
+        function calculate() {
+            const values = getValues();
+            const emptyFields = inputs.filter(id => values[id] === null);
+            const filledFields = inputs.filter(id => values[id] !== null);
+
+            if (emptyFields.length === 0) {
+                showResult('Please leave one field empty to solve for it.', 'error');
+                return;
+            }
+
+            if (emptyFields.length > 1) {
+                showResult('Please fill in exactly 3 values and leave one empty.', 'error');
+                return;
+            }
+
+            for (let id of filledFields) {
+                if (isNaN(values[id])) {
+                    showResult('Please enter valid numbers only.', 'error');
+                    return;
+                }
+                if (values[id] < 0) {
+                    showResult('Please enter positive numbers only.', 'error');
+                    return;
+                }
+            }
+
+            const missing = emptyFields[0];
+            let result;
+
+            try {
+                switch(missing) {
+                    case 'a':
+                        if (values.d === 0) throw new Error('Cannot divide by zero');
+                        result = (values.b * values.c) / values.d;
+                        break;
+                    case 'b':
+                        if (values.c === 0) throw new Error('Cannot divide by zero');
+                        result = (values.a * values.d) / values.c;
+                        break;
+                    case 'c':
+                        if (values.b === 0) throw new Error('Cannot divide by zero');
+                        result = (values.a * values.d) / values.b;
+                        break;
+                    case 'd':
+                        if (values.c === 0) throw new Error('Cannot divide by zero');
+                        result = (values.b * values.c) / values.a;
+                        break;
+                }
+
+                result = Math.round(result * 100) / 100;
+
+                document.getElementById(missing).value = result;
+                document.getElementById(missing).classList.add('filled');
+
+                const a = values.a === null ? result : values.a;
+                const b = values.b === null ? result : values.b;
+                const c = values.c === null ? result : values.c;
+                const d = values.d === null ? result : values.d;
+
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `<div>Solution found!</div><div class="result-value">${a}/${b} = ${c}/${d}</div>`;
+                resultDiv.className = 'result success';
+
+            } catch (error) {
+                showResult(error.message, 'error');
+            }
+        }
+
+        function reset() {
+            inputs.forEach(id => {
+                const input = document.getElementById(id);
+                input.value = '';
+                input.classList.remove('filled');
+            });
+            document.getElementById('result').className = 'result hidden';
+        }
+
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                calculate();
+            }
+        });
+    </script>
+</body>
+</html>
