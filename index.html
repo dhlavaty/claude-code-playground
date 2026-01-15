@@ -251,7 +251,7 @@
         function getValues() {
             const values = {};
             inputs.forEach(id => {
-                const value = document.getElementById(id).value.trim();
+                const value = document.getElementById(id).value.trim().replace(/,/g, '.');
                 values[id] = value === '' ? null : parseFloat(value);
             });
             return values;
