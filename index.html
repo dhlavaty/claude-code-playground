@@ -231,10 +231,14 @@
 
     <script>
         const inputs = ['a', 'b', 'c', 'd'];
+        let lastEditedField = null;
 
         inputs.forEach(id => {
             const input = document.getElementById(id);
             input.addEventListener('input', function() {
+                // Track the last edited field
+                lastEditedField = id;
+
                 // If user types in a calculated field, it's no longer calculated
                 if (this.classList.contains('calculated')) {
                     this.classList.remove('calculated');
@@ -253,8 +257,13 @@
         function getValues() {
             const values = {};
             inputs.forEach(id => {
-                const value = document.getElementById(id).value.trim().replace(/,/g, '.');
-                values[id] = value === '' ? null : parseFloat(value);
+                let value = document.getElementById(id).value.trim();
+                // Replace commas with dots for decimal separator
+                value = value.replace(/,/g, '.');
+                // Extract numeric value by removing leading/trailing non-numeric characters
+                const match = value.match(/[+-]?\d+\.?\d*/);
+                const numericValue = match ? match[0] : '';
+                values[id] = numericValue === '' ? null : parseFloat(numericValue);
             });
             return values;
         }
@@ -276,10 +285,14 @@
             // Determine the target field to calculate
             let targetField = null;
             if (emptyFields.length === 1) {
+                // If exactly one field is empty, use it as target
                 targetField = emptyFields[0];
             } else if (calculatedField) {
                 // Keep using the calculated field as target
                 targetField = calculatedField;
+            } else if (emptyFields.length > 0) {
+                // If there are multiple empty fields and no calculated field, use the first empty field
+                targetField = emptyFields[0];
             }
 
             // Clear the previously calculated field if we're changing targets

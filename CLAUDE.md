@@ -26,14 +26,15 @@ The tabindex is configured for convenient data entry: a → c → b → d → Ca
 
 **Auto-Calculation Behavior:**
 - Calculations happen automatically as you type - no need to press Calculate button
-- When exactly 3 fields are filled, the 4th field is automatically calculated
+- When any 3 fields are filled, the 4th field is automatically calculated
 - The calculated field is marked with a green border (`.calculated` class at index.html:93-97)
 - As you continue typing or modify any value, the calculated field updates instantly
-- If you type in the calculated field, it becomes a regular input and another field will be selected for calculation
+- If you type in the calculated field, it becomes a regular input and the first empty field or last edited field will be selected for calculation
 - Errors (invalid input, division by zero) automatically clear the calculated field
 
 **Input Handling (index.html:253-258):**
 - Accepts both dot (.) and comma (,) as decimal separators
+- Any leading and trailing non numeric values are ignored, and fields are parsed as they are not there
 - Commas are automatically converted to dots before parsing: `.replace(/,/g, '.')`
 - Supports European and American number formats
 - Input event listeners trigger auto-calculation on every change (index.html:237-250)
