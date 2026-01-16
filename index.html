@@ -56,21 +56,20 @@
 
         .proportion-container {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-
-        .fraction {
-            display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        .fraction input {
+        .proportion-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .proportion-row input {
             width: 80px;
             padding: 12px;
             font-size: 18px;
@@ -80,25 +79,24 @@
             transition: all 0.3s;
         }
 
-        .fraction input:focus {
+        .proportion-row input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .fraction input.filled {
+        .proportion-row input.filled {
             background: #f8f9ff;
             border-color: #667eea;
         }
 
-        .fraction-line {
-            width: 60px;
-            height: 2px;
-            background: #333;
-            margin: 4px 0;
+        .proportion-row input.calculated {
+            background: #f0fdf4;
+            border-color: #22c55e;
+            border-width: 3px;
         }
 
-        .equals {
+        .arrow {
             font-size: 32px;
             color: #667eea;
             font-weight: bold;
@@ -204,31 +202,28 @@
 <body>
     <div class="container">
         <h1>Proportion Calculator</h1>
-        <p class="subtitle">Solve for the missing value</p>
 
         <div class="instructions">
             Enter any 3 values and leave one empty. Click Calculate to find the missing value.
         </div>
 
         <div class="proportion-container">
-            <div class="fraction">
-                <input type="text" id="a" placeholder="a" inputmode="decimal">
-                <div class="fraction-line"></div>
-                <input type="text" id="b" placeholder="b" inputmode="decimal">
+            <div class="proportion-row">
+                <input type="text" id="a" placeholder="a" inputmode="decimal" tabindex="1">
+                <div class="arrow">→</div>
+                <input type="text" id="c" placeholder="c" inputmode="decimal" tabindex="2">
             </div>
 
-            <div class="equals">=</div>
-
-            <div class="fraction">
-                <input type="text" id="c" placeholder="c" inputmode="decimal">
-                <div class="fraction-line"></div>
-                <input type="text" id="d" placeholder="d" inputmode="decimal">
+            <div class="proportion-row">
+                <input type="text" id="b" placeholder="b" inputmode="decimal" tabindex="3">
+                <div class="arrow">→</div>
+                <input type="text" id="d" placeholder="d" inputmode="decimal" tabindex="4">
             </div>
         </div>
 
         <div class="buttons">
-            <button class="calculate-btn" onclick="calculate()">Calculate</button>
-            <button class="reset-btn" onclick="reset()">Reset</button>
+            <button class="calculate-btn" onclick="calculate()" tabindex="5">Calculate</button>
+            <button class="reset-btn" onclick="reset()" tabindex="6">Reset</button>
         </div>
 
         <div id="result" class="result hidden"></div>
@@ -240,11 +235,18 @@
         inputs.forEach(id => {
             const input = document.getElementById(id);
             input.addEventListener('input', function() {
+                // If user types in a calculated field, it's no longer calculated
+                if (this.classList.contains('calculated')) {
+                    this.classList.remove('calculated');
+                }
+
                 if (this.value.trim()) {
                     this.classList.add('filled');
                 } else {
                     this.classList.remove('filled');
                 }
+                // Trigger auto-calculation
+                autoCalculate();
             });
         });
 
@@ -263,72 +265,123 @@
             resultDiv.className = 'result ' + type;
         }
 
-        function calculate() {
+        function autoCalculate() {
             const values = getValues();
+
+            // Find which field should be calculated (empty or has calculated class)
+            let calculatedField = inputs.find(id => document.getElementById(id).classList.contains('calculated'));
             const emptyFields = inputs.filter(id => values[id] === null);
             const filledFields = inputs.filter(id => values[id] !== null);
 
-            if (emptyFields.length === 0) {
-                showResult('Please leave one field empty to solve for it.', 'error');
+            // Determine the target field to calculate
+            let targetField = null;
+            if (emptyFields.length === 1) {
+                targetField = emptyFields[0];
+            } else if (calculatedField) {
+                // Keep using the calculated field as target
+                targetField = calculatedField;
+            }
+
+            // Clear the previously calculated field if we're changing targets
+            if (calculatedField && calculatedField !== targetField) {
+                const oldCalcInput = document.getElementById(calculatedField);
+                oldCalcInput.value = '';
+                oldCalcInput.classList.remove('filled');
+                oldCalcInput.classList.remove('calculated');
+            }
+
+            // Count filled fields excluding the target field
+            const otherFilledFields = filledFields.filter(id => id !== targetField);
+
+            // If we can't determine a target or don't have exactly 3 other values, clear everything
+            if (!targetField || otherFilledFields.length !== 3) {
+                // Clear any calculated field
+                inputs.forEach(id => {
+                    const input = document.getElementById(id);
+                    if (input.classList.contains('calculated')) {
+                        input.value = '';
+                        input.classList.remove('filled');
+                        input.classList.remove('calculated');
+                    }
+                });
+                document.getElementById('result').className = 'result hidden';
                 return;
             }
 
-            if (emptyFields.length > 1) {
-                showResult('Please fill in exactly 3 values and leave one empty.', 'error');
-                return;
-            }
-
-            for (let id of filledFields) {
-                if (isNaN(values[id])) {
-                    showResult('Please enter valid numbers only.', 'error');
+            // Validate filled fields
+            for (let id of otherFilledFields) {
+                if (isNaN(values[id]) || values[id] < 0) {
+                    // Clear calculated field on error
+                    const targetInput = document.getElementById(targetField);
+                    if (targetInput.classList.contains('calculated')) {
+                        targetInput.value = '';
+                        targetInput.classList.remove('filled');
+                        targetInput.classList.remove('calculated');
+                    }
+                    document.getElementById('result').className = 'result hidden';
                     return;
                 }
-                if (values[id] < 0) {
-                    showResult('Please enter positive numbers only.', 'error');
-                    return;
-                }
             }
 
-            const missing = emptyFields[0];
+            // Perform calculation
             let result;
-
             try {
-                switch(missing) {
+                const otherValues = {};
+                inputs.forEach(id => {
+                    if (id !== targetField) {
+                        otherValues[id] = values[id];
+                    }
+                });
+
+                switch(targetField) {
                     case 'a':
-                        if (values.d === 0) throw new Error('Cannot divide by zero');
-                        result = (values.b * values.c) / values.d;
+                        if (otherValues.d === 0) throw new Error('Division by zero');
+                        result = (otherValues.b * otherValues.c) / otherValues.d;
                         break;
                     case 'b':
-                        if (values.c === 0) throw new Error('Cannot divide by zero');
-                        result = (values.a * values.d) / values.c;
+                        if (otherValues.c === 0) throw new Error('Division by zero');
+                        result = (otherValues.a * otherValues.d) / otherValues.c;
                         break;
                     case 'c':
-                        if (values.b === 0) throw new Error('Cannot divide by zero');
-                        result = (values.a * values.d) / values.b;
+                        if (otherValues.b === 0) throw new Error('Division by zero');
+                        result = (otherValues.a * otherValues.d) / otherValues.b;
                         break;
                     case 'd':
-                        if (values.c === 0) throw new Error('Cannot divide by zero');
-                        result = (values.b * values.c) / values.a;
+                        if (otherValues.c === 0) throw new Error('Division by zero');
+                        result = (otherValues.b * otherValues.c) / otherValues.a;
                         break;
                 }
 
                 result = Math.round(result * 100) / 100;
 
-                document.getElementById(missing).value = result;
-                document.getElementById(missing).classList.add('filled');
+                const targetInput = document.getElementById(targetField);
+                targetInput.value = result;
+                targetInput.classList.add('filled');
+                targetInput.classList.add('calculated');
 
-                const a = values.a === null ? result : values.a;
-                const b = values.b === null ? result : values.b;
-                const c = values.c === null ? result : values.c;
-                const d = values.d === null ? result : values.d;
+                const a = targetField === 'a' ? result : otherValues.a;
+                const b = targetField === 'b' ? result : otherValues.b;
+                const c = targetField === 'c' ? result : otherValues.c;
+                const d = targetField === 'd' ? result : otherValues.d;
 
                 const resultDiv = document.getElementById('result');
                 resultDiv.innerHTML = `<div>Solution found!</div><div class="result-value">${a}/${b} = ${c}/${d}</div>`;
                 resultDiv.className = 'result success';
 
             } catch (error) {
-                showResult(error.message, 'error');
+                // Clear calculated field on error
+                const targetInput = document.getElementById(targetField);
+                if (targetInput.classList.contains('calculated')) {
+                    targetInput.value = '';
+                    targetInput.classList.remove('filled');
+                    targetInput.classList.remove('calculated');
+                }
+                document.getElementById('result').className = 'result hidden';
             }
+        }
+
+        function calculate() {
+            autoCalculate();
         }
 
         function reset() {
@@ -336,6 +389,7 @@
                 const input = document.getElementById(id);
                 input.value = '';
                 input.classList.remove('filled');
+                input.classList.remove('calculated');
             });
             document.getElementById('result').className = 'result hidden';
         }

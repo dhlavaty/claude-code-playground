@@ -10,21 +10,61 @@ This is a single-file web application: a proportion calculator that solves for o
 
 **Single-File Structure:**
 - `index.html` - Complete self-contained application with embedded CSS and JavaScript
-  - HTML: Fraction-style input layout with 4 fields (a, b, c, d)
+  - HTML: Arrow-based input layout with 4 fields (a, b, c, d) displayed as `a → c` and `b → d`
   - CSS: Modern purple gradient design with responsive layout
-  - JavaScript: Cross-multiplication solver with validation
+  - JavaScript: Automatic cross-multiplication solver with real-time validation
 
-**Core Calculation Logic (index.html:296-313):**
+**UI Layout:**
+```
+a → c
+b → d
+[Calculate] [Reset]
+```
+
+**Tab Order:**
+The tabindex is configured for convenient data entry: a → c → b → d → Calculate → Reset
+
+**Auto-Calculation Behavior:**
+- Calculations happen automatically as you type - no need to press Calculate button
+- When exactly 3 fields are filled, the 4th field is automatically calculated
+- The calculated field is marked with a green border (`.calculated` class at index.html:93-97)
+- As you continue typing or modify any value, the calculated field updates instantly
+- If you type in the calculated field, it becomes a regular input and another field will be selected for calculation
+- Errors (invalid input, division by zero) automatically clear the calculated field
+
+**Input Handling (index.html:253-258):**
+- Accepts both dot (.) and comma (,) as decimal separators
+- Commas are automatically converted to dots before parsing: `.replace(/,/g, '.')`
+- Supports European and American number formats
+- Input event listeners trigger auto-calculation on every change (index.html:237-250)
+
+**Core Calculation Logic (index.html:268-381):**
 The calculator uses cross-multiplication to solve for the missing value:
 - If `a` is missing: `a = (b × c) / d`
 - If `b` is missing: `b = (a × d) / c`
 - If `c` is missing: `c = (a × d) / b`
 - If `d` is missing: `d = (b × c) / a`
 
-**Validation Requirements:**
-- Exactly 3 values must be provided (one field must be empty)
+Results are rounded to 2 decimal places: `Math.round(result * 100) / 100`
+
+**Target Field Selection:**
+- If exactly 1 field is empty, that field becomes the calculated target
+- If a field is already calculated (has green border), it remains the target even when all 4 fields are filled
+- User typing in a calculated field removes its calculated status
+
+**Validation:**
+- Exactly 3 input fields must have values (4th is auto-calculated)
 - All values must be positive numbers
-- Division by zero is prevented with error handling
+- Division by zero is prevented - clears calculated field
+- Non-numeric input clears the calculated field
+- All validation happens silently without error messages during typing
+
+**Key Functions:**
+- `getValues()` - Retrieves and parses input values, handles comma/dot conversion
+- `autoCalculate()` - Main auto-calculation function triggered on every input change
+- `calculate()` - Wrapper that calls autoCalculate() (for Calculate button compatibility)
+- `reset()` - Clears all inputs, results, and calculated status
+- `showResult(message, type)` - Displays success messages (errors are handled silently)
 
 ## Running the Application
 
