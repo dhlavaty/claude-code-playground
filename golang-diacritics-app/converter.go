@@ -1,0 +1,285 @@
+package main
+
+import (
+	"errors"
+	"strings"
+)
+
+// UTF-8 BOM (Byte Order Mark)
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
+// windows1250ToUTF8 maps WINDOWS-1250 bytes to UTF-8 byte sequences
+// Index is the WINDOWS-1250 byte value, value is the UTF-8 representation
+var windows1250ToUTF8 = map[byte][]byte{
+	// 0x00-0x7F: ASCII (handled as passthrough)
+
+	// 0x80-0x9F: WINDOWS-1250 specific mappings
+	0x80: []byte{0xE2, 0x82, 0xAC}, // € (Euro sign)
+	0x82: []byte{0xE2, 0x80, 0x9A}, // ‚ (single low-9 quotation mark)
+	0x84: []byte{0xE2, 0x80, 0x9E}, // „ (double low-9 quotation mark)
+	0x85: []byte{0xE2, 0x80, 0xA6}, // … (ellipsis)
+	0x86: []byte{0xE2, 0x80, 0xA0}, // † (dagger)
+	0x87: []byte{0xE2, 0x80, 0xA1}, // ‡ (double dagger)
+	0x89: []byte{0xE2, 0x80, 0xB0}, // ‰ (per mille)
+	0x8A: []byte{0xC5, 0xA0},       // Š (uppercase S with caron)
+	0x8B: []byte{0xE2, 0x80, 0xB9}, // ‹ (single left-pointing angle quotation)
+	0x8C: []byte{0xC5, 0x9A},       // Ś (uppercase S with acute)
+	0x8D: []byte{0xC5, 0xA4},       // Ť (uppercase T with caron)
+	0x8E: []byte{0xC5, 0xBD},       // Ž (uppercase Z with caron)
+	0x8F: []byte{0xC5, 0xB9},       // Ź (uppercase Z with acute)
+	0x91: []byte{0xE2, 0x80, 0x98}, // ' (left single quotation mark)
+	0x92: []byte{0xE2, 0x80, 0x99}, // ' (right single quotation mark)
+	0x93: []byte{0xE2, 0x80, 0x9C}, // " (left double quotation mark)
+	0x94: []byte{0xE2, 0x80, 0x9D}, // " (right double quotation mark)
+	0x95: []byte{0xE2, 0x80, 0xA2}, // • (bullet)
+	0x96: []byte{0xE2, 0x80, 0x93}, // – (en dash)
+	0x97: []byte{0xE2, 0x80, 0x94}, // — (em dash)
+	0x99: []byte{0xE2, 0x84, 0xA2}, // ™ (trademark)
+	0x9A: []byte{0xC5, 0xA1},       // š (lowercase s with caron)
+	0x9B: []byte{0xE2, 0x80, 0xBA}, // › (single right-pointing angle quotation)
+	0x9C: []byte{0xC5, 0x9B},       // ś (lowercase s with acute)
+	0x9D: []byte{0xC5, 0xA5},       // ť (lowercase t with caron)
+	0x9E: []byte{0xC5, 0xBE},       // ž (lowercase z with caron)
+	0x9F: []byte{0xC5, 0xBA},       // ź (lowercase z with acute)
+
+	// 0xA0-0xFF: Common mappings
+	0xA0: []byte{0xC2, 0xA0}, // non-breaking space
+	0xA1: []byte{0xCB, 0x87}, // ˇ (caron)
+	0xA2: []byte{0xCB, 0x98}, // ˘ (breve)
+	0xA3: []byte{0xC5, 0x81}, // Ł (uppercase L with stroke)
+	0xA4: []byte{0xC2, 0xA4}, // ¤ (currency sign)
+	0xA5: []byte{0xC4, 0x84}, // Ą (uppercase A with ogonek)
+	0xA6: []byte{0xC2, 0xA6}, // ¦ (broken bar)
+	0xA7: []byte{0xC2, 0xA7}, // § (section sign)
+	0xA8: []byte{0xC2, 0xA8}, // ¨ (diaeresis)
+	0xA9: []byte{0xC2, 0xA9}, // © (copyright)
+	0xAA: []byte{0xC5, 0x9E}, // Ş (uppercase S with cedilla)
+	0xAB: []byte{0xC2, 0xAB}, // « (left guillemet)
+	0xAC: []byte{0xC2, 0xAC}, // ¬ (not sign)
+	0xAD: []byte{0xC2, 0xAD}, // soft hyphen
+	0xAE: []byte{0xC2, 0xAE}, // ® (registered)
+	0xAF: []byte{0xC5, 0xBB}, // Ż (uppercase Z with dot above)
+	0xB0: []byte{0xC2, 0xB0}, // ° (degree)
+	0xB1: []byte{0xC2, 0xB1}, // ± (plus-minus)
+	0xB2: []byte{0xCB, 0x9B}, // ˛ (ogonek)
+	0xB3: []byte{0xC5, 0x82}, // ł (lowercase l with stroke)
+	0xB4: []byte{0xC2, 0xB4}, // ´ (acute accent)
+	0xB5: []byte{0xC2, 0xB5}, // µ (micro)
+	0xB6: []byte{0xC2, 0xB6}, // ¶ (pilcrow)
+	0xB7: []byte{0xC2, 0xB7}, // · (middle dot)
+	0xB8: []byte{0xC2, 0xB8}, // ¸ (cedilla)
+	0xB9: []byte{0xC4, 0x85}, // ą (lowercase a with ogonek)
+	0xBA: []byte{0xC5, 0x9F}, // ş (lowercase s with cedilla)
+	0xBB: []byte{0xC2, 0xBB}, // » (right guillemet)
+	0xBC: []byte{0xC4, 0xBD}, // Ľ (uppercase L with caron)
+	0xBD: []byte{0xCB, 0x9D}, // ˝ (double acute)
+	0xBE: []byte{0xC4, 0xBE}, // ľ (lowercase l with caron)
+	0xBF: []byte{0xC5, 0xBC}, // ż (lowercase z with dot above)
+	0xC0: []byte{0xC5, 0x94}, // Ŕ (uppercase R with acute)
+	0xC1: []byte{0xC3, 0x81}, // Á (uppercase A with acute)
+	0xC2: []byte{0xC3, 0x82}, // Â (uppercase A with circumflex)
+	0xC3: []byte{0xC4, 0x82}, // Ă (uppercase A with breve)
+	0xC4: []byte{0xC3, 0x84}, // Ä (uppercase A with diaeresis)
+	0xC5: []byte{0xC4, 0xB9}, // Ĺ (uppercase L with acute)
+	0xC6: []byte{0xC4, 0x86}, // Ć (uppercase C with acute)
+	0xC7: []byte{0xC3, 0x87}, // Ç (uppercase C with cedilla)
+	0xC8: []byte{0xC4, 0x8C}, // Č (uppercase C with caron)
+	0xC9: []byte{0xC3, 0x89}, // É (uppercase E with acute)
+	0xCA: []byte{0xC4, 0x98}, // Ę (uppercase E with ogonek)
+	0xCB: []byte{0xC3, 0x8B}, // Ë (uppercase E with diaeresis)
+	0xCC: []byte{0xC4, 0x9A}, // Ě (uppercase E with caron)
+	0xCD: []byte{0xC3, 0x8D}, // Í (uppercase I with acute)
+	0xCE: []byte{0xC3, 0x8E}, // Î (uppercase I with circumflex)
+	0xCF: []byte{0xC4, 0x8E}, // Ď (uppercase D with caron)
+	0xD0: []byte{0xC4, 0x90}, // Đ (uppercase D with stroke)
+	0xD1: []byte{0xC5, 0x83}, // Ń (uppercase N with acute)
+	0xD2: []byte{0xC5, 0x87}, // Ň (uppercase N with caron)
+	0xD3: []byte{0xC3, 0x93}, // Ó (uppercase O with acute)
+	0xD4: []byte{0xC3, 0x94}, // Ô (uppercase O with circumflex)
+	0xD5: []byte{0xC5, 0x90}, // Ő (uppercase O with double acute)
+	0xD6: []byte{0xC3, 0x96}, // Ö (uppercase O with diaeresis)
+	0xD7: []byte{0xC3, 0x97}, // × (multiplication)
+	0xD8: []byte{0xC5, 0x98}, // Ř (uppercase R with caron)
+	0xD9: []byte{0xC5, 0xAE}, // Ů (uppercase U with ring)
+	0xDA: []byte{0xC3, 0x9A}, // Ú (uppercase U with acute)
+	0xDB: []byte{0xC5, 0xB0}, // Ű (uppercase U with double acute)
+	0xDC: []byte{0xC3, 0x9C}, // Ü (uppercase U with diaeresis)
+	0xDD: []byte{0xC3, 0x9D}, // Ý (uppercase Y with acute)
+	0xDE: []byte{0xC5, 0xA2}, // Ţ (uppercase T with cedilla)
+	0xDF: []byte{0xC3, 0x9F}, // ß (German sharp s)
+	0xE0: []byte{0xC5, 0x95}, // ŕ (lowercase r with acute)
+	0xE1: []byte{0xC3, 0xA1}, // á (lowercase a with acute)
+	0xE2: []byte{0xC3, 0xA2}, // â (lowercase a with circumflex)
+	0xE3: []byte{0xC4, 0x83}, // ă (lowercase a with breve)
+	0xE4: []byte{0xC3, 0xA4}, // ä (lowercase a with diaeresis)
+	0xE5: []byte{0xC4, 0xBA}, // ĺ (lowercase l with acute)
+	0xE6: []byte{0xC4, 0x87}, // ć (lowercase c with acute)
+	0xE7: []byte{0xC3, 0xA7}, // ç (lowercase c with cedilla)
+	0xE8: []byte{0xC4, 0x8D}, // č (lowercase c with caron)
+	0xE9: []byte{0xC3, 0xA9}, // é (lowercase e with acute)
+	0xEA: []byte{0xC4, 0x99}, // ę (lowercase e with ogonek)
+	0xEB: []byte{0xC3, 0xAB}, // ë (lowercase e with diaeresis)
+	0xEC: []byte{0xC4, 0x9B}, // ě (lowercase e with caron)
+	0xED: []byte{0xC3, 0xAD}, // í (lowercase i with acute)
+	0xEE: []byte{0xC3, 0xAE}, // î (lowercase i with circumflex)
+	0xEF: []byte{0xC4, 0x8F}, // ď (lowercase d with caron)
+	0xF0: []byte{0xC4, 0x91}, // đ (lowercase d with stroke)
+	0xF1: []byte{0xC5, 0x84}, // ń (lowercase n with acute)
+	0xF2: []byte{0xC5, 0x88}, // ň (lowercase n with caron)
+	0xF3: []byte{0xC3, 0xB3}, // ó (lowercase o with acute)
+	0xF4: []byte{0xC3, 0xB4}, // ô (lowercase o with circumflex)
+	0xF5: []byte{0xC5, 0x91}, // ő (lowercase o with double acute)
+	0xF6: []byte{0xC3, 0xB6}, // ö (lowercase o with diaeresis)
+	0xF7: []byte{0xC3, 0xB7}, // ÷ (division)
+	0xF8: []byte{0xC5, 0x99}, // ř (lowercase r with caron)
+	0xF9: []byte{0xC5, 0xAF}, // ů (lowercase u with ring)
+	0xFA: []byte{0xC3, 0xBA}, // ú (lowercase u with acute)
+	0xFB: []byte{0xC5, 0xB1}, // ű (lowercase u with double acute)
+	0xFC: []byte{0xC3, 0xBC}, // ü (lowercase u with diaeresis)
+	0xFD: []byte{0xC3, 0xBD}, // ý (lowercase y with acute)
+	0xFE: []byte{0xC5, 0xA3}, // ţ (lowercase t with cedilla)
+	0xFF: []byte{0xCB, 0x99}, // ˙ (dot above)
+}
+
+// iso88592ToUTF8 maps ISO-8859-2 bytes to UTF-8 byte sequences
+var iso88592ToUTF8 = map[byte][]byte{
+	// 0x00-0x7F: ASCII (handled as passthrough)
+	// 0x80-0x9F: undefined in ISO-8859-2 (will be passed through as-is, but shouldn't appear)
+
+	// 0xA0-0xFF: ISO-8859-2 specific mappings
+	0xA0: []byte{0xC2, 0xA0}, // non-breaking space
+	0xA1: []byte{0xC4, 0x84}, // Ą (uppercase A with ogonek)
+	0xA2: []byte{0xCB, 0x98}, // ˘ (breve)
+	0xA3: []byte{0xC5, 0x81}, // Ł (uppercase L with stroke)
+	0xA4: []byte{0xC2, 0xA4}, // ¤ (currency sign)
+	0xA5: []byte{0xC4, 0xBD}, // Ľ (uppercase L with caron)
+	0xA6: []byte{0xC5, 0x9A}, // Ś (uppercase S with acute)
+	0xA7: []byte{0xC2, 0xA7}, // § (section sign)
+	0xA8: []byte{0xC2, 0xA8}, // ¨ (diaeresis)
+	0xA9: []byte{0xC5, 0xA0}, // Š (uppercase S with caron)
+	0xAA: []byte{0xC5, 0x9E}, // Ş (uppercase S with cedilla)
+	0xAB: []byte{0xC5, 0xA4}, // Ť (uppercase T with caron)
+	0xAC: []byte{0xC5, 0xB9}, // Ź (uppercase Z with acute)
+	0xAD: []byte{0xC2, 0xAD}, // soft hyphen
+	0xAE: []byte{0xC5, 0xBD}, // Ž (uppercase Z with caron)
+	0xAF: []byte{0xC5, 0xBB}, // Ż (uppercase Z with dot above)
+	0xB0: []byte{0xC2, 0xB0}, // ° (degree)
+	0xB1: []byte{0xC4, 0x85}, // ą (lowercase a with ogonek)
+	0xB2: []byte{0xCB, 0x9B}, // ˛ (ogonek)
+	0xB3: []byte{0xC5, 0x82}, // ł (lowercase l with stroke)
+	0xB4: []byte{0xC2, 0xB4}, // ´ (acute accent)
+	0xB5: []byte{0xC4, 0xBE}, // ľ (lowercase l with caron)
+	0xB6: []byte{0xC5, 0x9B}, // ś (lowercase s with acute)
+	0xB7: []byte{0xCB, 0x87}, // ˇ (caron)
+	0xB8: []byte{0xC2, 0xB8}, // ¸ (cedilla)
+	0xB9: []byte{0xC5, 0xA1}, // š (lowercase s with caron)
+	0xBA: []byte{0xC5, 0x9F}, // ş (lowercase s with cedilla)
+	0xBB: []byte{0xC5, 0xA5}, // ť (lowercase t with caron)
+	0xBC: []byte{0xC5, 0xBA}, // ź (lowercase z with acute)
+	0xBD: []byte{0xCB, 0x9D}, // ˝ (double acute)
+	0xBE: []byte{0xC5, 0xBE}, // ž (lowercase z with caron)
+	0xBF: []byte{0xC5, 0xBC}, // ż (lowercase z with dot above)
+	0xC0: []byte{0xC5, 0x94}, // Ŕ (uppercase R with acute)
+	0xC1: []byte{0xC3, 0x81}, // Á (uppercase A with acute)
+	0xC2: []byte{0xC3, 0x82}, // Â (uppercase A with circumflex)
+	0xC3: []byte{0xC4, 0x82}, // Ă (uppercase A with breve)
+	0xC4: []byte{0xC3, 0x84}, // Ä (uppercase A with diaeresis)
+	0xC5: []byte{0xC4, 0xB9}, // Ĺ (uppercase L with acute)
+	0xC6: []byte{0xC4, 0x86}, // Ć (uppercase C with acute)
+	0xC7: []byte{0xC3, 0x87}, // Ç (uppercase C with cedilla)
+	0xC8: []byte{0xC4, 0x8C}, // Č (uppercase C with caron)
+	0xC9: []byte{0xC3, 0x89}, // É (uppercase E with acute)
+	0xCA: []byte{0xC4, 0x98}, // Ę (uppercase E with ogonek)
+	0xCB: []byte{0xC3, 0x8B}, // Ë (uppercase E with diaeresis)
+	0xCC: []byte{0xC4, 0x9A}, // Ě (uppercase E with caron)
+	0xCD: []byte{0xC3, 0x8D}, // Í (uppercase I with acute)
+	0xCE: []byte{0xC3, 0x8E}, // Î (uppercase I with circumflex)
+	0xCF: []byte{0xC4, 0x8E}, // Ď (uppercase D with caron)
+	0xD0: []byte{0xC4, 0x90}, // Đ (uppercase D with stroke)
+	0xD1: []byte{0xC5, 0x83}, // Ń (uppercase N with acute)
+	0xD2: []byte{0xC5, 0x87}, // Ň (uppercase N with caron)
+	0xD3: []byte{0xC3, 0x93}, // Ó (uppercase O with acute)
+	0xD4: []byte{0xC3, 0x94}, // Ô (uppercase O with circumflex)
+	0xD5: []byte{0xC5, 0x90}, // Ő (uppercase O with double acute)
+	0xD6: []byte{0xC3, 0x96}, // Ö (uppercase O with diaeresis)
+	0xD7: []byte{0xC3, 0x97}, // × (multiplication)
+	0xD8: []byte{0xC5, 0x98}, // Ř (uppercase R with caron)
+	0xD9: []byte{0xC5, 0xAE}, // Ů (uppercase U with ring)
+	0xDA: []byte{0xC3, 0x9A}, // Ú (uppercase U with acute)
+	0xDB: []byte{0xC5, 0xB0}, // Ű (uppercase U with double acute)
+	0xDC: []byte{0xC3, 0x9C}, // Ü (uppercase U with diaeresis)
+	0xDD: []byte{0xC3, 0x9D}, // Ý (uppercase Y with acute)
+	0xDE: []byte{0xC5, 0xA2}, // Ţ (uppercase T with cedilla)
+	0xDF: []byte{0xC3, 0x9F}, // ß (German sharp s)
+	0xE0: []byte{0xC5, 0x95}, // ŕ (lowercase r with acute)
+	0xE1: []byte{0xC3, 0xA1}, // á (lowercase a with acute)
+	0xE2: []byte{0xC3, 0xA2}, // â (lowercase a with circumflex)
+	0xE3: []byte{0xC4, 0x83}, // ă (lowercase a with breve)
+	0xE4: []byte{0xC3, 0xA4}, // ä (lowercase a with diaeresis)
+	0xE5: []byte{0xC4, 0xBA}, // ĺ (lowercase l with acute)
+	0xE6: []byte{0xC4, 0x87}, // ć (lowercase c with acute)
+	0xE7: []byte{0xC3, 0xA7}, // ç (lowercase c with cedilla)
+	0xE8: []byte{0xC4, 0x8D}, // č (lowercase c with caron)
+	0xE9: []byte{0xC3, 0xA9}, // é (lowercase e with acute)
+	0xEA: []byte{0xC4, 0x99}, // ę (lowercase e with ogonek)
+	0xEB: []byte{0xC3, 0xAB}, // ë (lowercase e with diaeresis)
+	0xEC: []byte{0xC4, 0x9B}, // ě (lowercase e with caron)
+	0xED: []byte{0xC3, 0xAD}, // í (lowercase i with acute)
+	0xEE: []byte{0xC3, 0xAE}, // î (lowercase i with circumflex)
+	0xEF: []byte{0xC4, 0x8F}, // ď (lowercase d with caron)
+	0xF0: []byte{0xC4, 0x91}, // đ (lowercase d with stroke)
+	0xF1: []byte{0xC5, 0x84}, // ń (lowercase n with acute)
+	0xF2: []byte{0xC5, 0x88}, // ň (lowercase n with caron)
+	0xF3: []byte{0xC3, 0xB3}, // ó (lowercase o with acute)
+	0xF4: []byte{0xC3, 0xB4}, // ô (lowercase o with circumflex)
+	0xF5: []byte{0xC5, 0x91}, // ő (lowercase o with double acute)
+	0xF6: []byte{0xC3, 0xB6}, // ö (lowercase o with diaeresis)
+	0xF7: []byte{0xC3, 0xB7}, // ÷ (division)
+	0xF8: []byte{0xC5, 0x99}, // ř (lowercase r with caron)
+	0xF9: []byte{0xC5, 0xAF}, // ů (lowercase u with ring)
+	0xFA: []byte{0xC3, 0xBA}, // ú (lowercase u with acute)
+	0xFB: []byte{0xC5, 0xB1}, // ű (lowercase u with double acute)
+	0xFC: []byte{0xC3, 0xBC}, // ü (lowercase u with diaeresis)
+	0xFD: []byte{0xC3, 0xBD}, // ý (lowercase y with acute)
+	0xFE: []byte{0xC5, 0xA3}, // ţ (lowercase t with cedilla)
+	0xFF: []byte{0xCB, 0x99}, // ˙ (dot above)
+}
+
+// ConvertToUTF8 converts byte data from the specified encoding to UTF-8 with BOM
+func ConvertToUTF8(data []byte, encoding string) ([]byte, error) {
+	encoding = strings.ToLower(encoding)
+
+	var lookupTable map[byte][]byte
+	switch encoding {
+	case "windows-1250":
+		lookupTable = windows1250ToUTF8
+	case "iso-8859-2":
+		lookupTable = iso88592ToUTF8
+	default:
+		return nil, errors.New("unsupported encoding: " + encoding)
+	}
+
+	// Pre-allocate result buffer (rough estimate: 1.5x original size for multi-byte UTF-8)
+	result := make([]byte, 0, len(data)*3/2+3)
+
+	// Add UTF-8 BOM
+	result = append(result, utf8BOM...)
+
+	// Convert each byte
+	for _, b := range data {
+		// ASCII bytes (0x00-0x7F) are the same in all encodings
+		if b < 0x80 {
+			result = append(result, b)
+		} else {
+			// Look up the UTF-8 representation
+			if utf8Bytes, exists := lookupTable[b]; exists {
+				result = append(result, utf8Bytes...)
+			} else {
+				// Unknown byte, pass through as-is (shouldn't happen with proper encoding)
+				result = append(result, b)
+			}
+		}
+	}
+
+	return result, nil
+}
