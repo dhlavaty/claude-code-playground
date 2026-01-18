@@ -1,0 +1,6 @@
+# Compiled binary
+diacritics-converter
+
+# Generated UTF-8 output files
+test-files/test1-iso8859-2-utf8.txt
+test-files/test1-windows1250-utf8.txt
