@@ -3,3 +3,6 @@
 V súvislosti so širokou zrozumiteľnosťou slovenčiny umožňuje český právny poriadok používať slovenčinu, na rozdiel od iných menšinových jazykov, bez prekladateľa či tlmočníka v právnych a úradných úkonoch. Týka sa to mnohých aspektov spoločenského života na celom území Česka. Napríklad Správny poriadok (zákon č. 500/2004 Zb.) stanovuje: "V řízení se jedná a písemnosti se vyhotovují v českém jazyce. Účastníci řízení mohou jednat a písemnosti mohou být předkládány i v jazyce slovenském" (§16, odsek 1).
 
 Počet slovenských slov fungujúcich alebo aspoň raz použitých v písaných textoch súčasnej slovenčiny nachádzajúcich sa v Slovenskom národnom korpuse môžeme odhadovať na viac ako 3 milióny (podľa jednotlivých tvarov) alebo približne 2 milióny (podľa počtu základných tvarov, v ktorých sú obsiahnuté všetky ich tvary nachádzajúce sa v textoch korpusu).
+
+Testovacie znaky:
++ľščťžýáíé='úäô§ňů

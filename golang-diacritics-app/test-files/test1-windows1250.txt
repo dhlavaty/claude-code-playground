@@ -3,3 +3,6 @@ Slovenèina je oficiálne úradnım jazykom Slovenska, Vojvodiny a od 1. mája 2004 j
 V súvislosti so širokou zrozumite¾nosou slovenèiny umoòuje èeskı právny poriadok pouíva slovenèinu, na rozdiel od inıch menšinovıch jazykov, bez prekladate¾a èi tlmoèníka v právnych a úradnıch úkonoch. Tıka sa to mnohıch aspektov spoloèenského ivota na celom území Èeska. Napríklad Správny poriadok (zákon è. 500/2004 Zb.) stanovuje: "V øízení se jedná a písemnosti se vyhotovují v èeském jazyce. Úèastníci øízení mohou jednat a písemnosti mohou bıt pøedkládány i v jazyce slovenském" (§16, odsek 1).
 
 Poèet slovenskıch slov fungujúcich alebo aspoò raz pouitıch v písanıch textoch súèasnej slovenèiny nachádzajúcich sa v Slovenskom národnom korpuse môeme odhadova na viac ako 3 milióny (pod¾a jednotlivıch tvarov) alebo pribline 2 milióny (pod¾a poètu základnıch tvarov, v ktorıch sú obsiahnuté všetky ich tvary nachádzajúce sa v textoch korpusu).
+
+Testovacie znaky:
++¾šèıáíé='úäô§òù
