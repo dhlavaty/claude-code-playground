@@ -2,14 +2,22 @@
 set -euo pipefail
 
 # DNSCrypt Stamp Parser
-# Decodes DNS stamps from odoh-servers.md and extracts IP addresses and hostnames
+# Decodes DNS stamps from DNSCrypt resolver lists and extracts IP addresses and hostnames
 
-readonly ODOH_URL="https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/odoh-servers.md"
+# DNSCrypt resolver list sources
+readonly RESOLVER_URLS=(
+    "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/odoh-servers.md"
+    "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/public-resolvers.md"
+    "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/relays.md"
+)
+
+readonly SDNS_FILE="sdns.txt"
 readonly DOMAINS_FILE="domains.txt"
 readonly IPV4_FILE="ipv4.txt"
 readonly IPV6_FILE="ipv6.txt"
 
 # Initialize output files
+> "$SDNS_FILE"
 > "$DOMAINS_FILE"
 > "$IPV4_FILE"
 > "$IPV6_FILE"
@@ -29,6 +37,32 @@ base64url_to_base64() {
     fi
 }
 
+# Function to extract length-prefixed string from hex data at given position
+extract_lp_string() {
+    local hex_data="$1"
+    local offset="$2"  # Offset in hex chars (2 chars = 1 byte)
+
+    # Get string length (first byte at offset)
+    local len_hex="${hex_data:$offset:2}"
+    [ -z "$len_hex" ] && return 1
+
+    local len=$((16#$len_hex))
+    [ $len -eq 0 ] && return 1
+
+    # Extract string hex data
+    local str_offset=$((offset + 2))
+    local str_hex="${hex_data:$str_offset:$((len * 2))}"
+
+    # Convert hex to ASCII
+    local str=""
+    for ((i=0; i<${#str_hex}; i+=2)); do
+        local byte="${str_hex:$i:2}"
+        str+=$(printf "\\x$byte")
+    done
+
+    echo "$str"
+}
+
 # Function to decode a DNS stamp and extract hostname/IP
 decode_stamp() {
     local stamp="$1"
@@ -46,40 +80,115 @@ decode_stamp() {
 
     [ -z "$hex_data" ] && return 1
 
-    # Parse the stamp format:
-    # - First byte (2 hex chars): protocol ID
-    # - Next 8 bytes (16 hex chars): props
-    # - Next: length-prefixed hostname
-
+    # Parse protocol ID (first byte)
     local protocol="${hex_data:0:2}"
 
-    # Skip protocol (2 chars) + props (16 chars) = 18 chars
-    local remaining="${hex_data:18}"
-
-    # Get hostname length (first byte after props)
-    local hostname_len_hex="${remaining:0:2}"
-    local hostname_len=$((16#$hostname_len_hex))
-
-    [ $hostname_len -eq 0 ] && return 1
-
-    # Extract hostname hex data (2 hex chars per byte)
-    local hostname_hex="${remaining:2:$((hostname_len * 2))}"
-
-    # Convert hex to ASCII
+    local addr=""
     local hostname=""
-    for ((i=0; i<${#hostname_hex}; i+=2)); do
-        local byte="${hostname_hex:$i:2}"
-        hostname+=$(printf "\\x$byte")
-    done
+    local offset
 
-    # Remove port if present (format: hostname:port)
-    hostname="${hostname%%:*}"
+    case "$protocol" in
+        00|01|02|03|04)
+            # Standard protocols with props field
+            # Format: protocol || props || LP(addr) || ...
+            offset=18  # Skip protocol (2) + props (16)
+            addr=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
+            [ -z "$addr" ] && return 1
 
-    # Remove brackets from IPv6 addresses
-    hostname="${hostname#[}"
-    hostname="${hostname%]}"
+            # For protocols 02, 03, 04 (DoH, DoT, DoQ), there's also a hostname field
+            if [[ "$protocol" =~ ^(02|03|04)$ ]]; then
+                # Skip addr: 2 (length) + addr_len*2 (data)
+                local addr_len=${#addr}
+                offset=$((offset + 2 + addr_len * 2))
 
-    echo "$hostname"
+                # Skip VLP hash list (find next non-0x80 byte)
+                while [ $offset -lt ${#hex_data} ]; do
+                    local byte="${hex_data:$offset:2}"
+                    offset=$((offset + 2))
+                    # If high bit not set (< 0x80), this is the last/only hash length
+                    if [ $((16#$byte)) -lt 128 ]; then
+                        # Skip hash data
+                        offset=$((offset + 16#$byte * 2))
+                        break
+                    else
+                        # Skip hash data (remove high bit to get length)
+                        local hash_len=$((16#$byte - 128))
+                        offset=$((offset + hash_len * 2))
+                    fi
+                done
+
+                # Now extract hostname
+                hostname=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
+            fi
+            ;;
+        81)
+            # DNSCrypt relay - no props field
+            # Format: protocol || LP(addr)
+            offset=2  # Skip only protocol
+            addr=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
+            [ -z "$addr" ] && return 1
+            ;;
+        05|06)
+            # ODoH protocols with props field
+            # Format: protocol || props || LP(hostname) || ...
+            offset=18  # Skip protocol (2) + props (16)
+            hostname=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
+            [ -z "$hostname" ] && return 1
+            ;;
+        85|86)
+            # ODoH relay protocols - no props field
+            # Format: protocol || LP(hostname) || ...
+            offset=2  # Skip only protocol
+            hostname=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
+            [ -z "$hostname" ] && return 1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    # Clean up and output addresses
+    # Handle format: [ipv6]:port or hostname:port or ip:port
+
+    # Process addr
+    if [ -n "$addr" ]; then
+        # Check for bracket-enclosed IPv6 with port: [addr]:port
+        if [[ "$addr" == "["*"]:"* ]]; then
+            # Remove brackets and port
+            addr="${addr#[}"      # Remove leading [
+            addr="${addr%%]:*}"   # Remove ]:port suffix
+        elif [[ "$addr" == "["*"]" ]]; then
+            # Just brackets, no port
+            addr="${addr#[}"
+            addr="${addr%]}"
+        elif [[ "$addr" =~ ^[^:]+:[0-9]+$ ]]; then
+            # hostname:port or ipv4:port (single colon followed by digits)
+            addr="${addr%:*}"
+        fi
+        # If IPv6 without brackets (has multiple colons), leave as-is
+    fi
+
+    # Process hostname (same logic)
+    if [ -n "$hostname" ]; then
+        if [[ "$hostname" == "["*"]:"* ]]; then
+            hostname="${hostname#[}"
+            hostname="${hostname%%]:*}"
+        elif [[ "$hostname" == "["*"]" ]]; then
+            hostname="${hostname#[}"
+            hostname="${hostname%]}"
+        elif [[ "$hostname" =~ ^[^:]+:[0-9]+$ ]]; then
+            hostname="${hostname%:*}"
+        fi
+    fi
+
+    # Output addr first if present, otherwise hostname
+    if [ -n "$addr" ]; then
+        echo "$addr"
+    elif [ -n "$hostname" ]; then
+        echo "$hostname"
+    else
+        return 1
+    fi
 }
 
 # Function to classify address as IPv4, IPv6, or domain
@@ -119,42 +228,56 @@ classify_and_save() {
 }
 
 main() {
-    echo "Downloading odoh-servers.md..."
-    local content
-    content=$(curl -sfL "$ODOH_URL")
+    local total_count=0
 
-    if [ -z "$content" ]; then
-        echo "Error: Failed to download odoh-servers.md" >&2
-        exit 1
-    fi
+    # Process each resolver list
+    for url in "${RESOLVER_URLS[@]}"; do
+        local filename
+        filename=$(basename "$url")
+        echo "Downloading $filename..."
 
-    echo "Extracting and decoding DNS stamps..."
+        local content
+        content=$(curl -sfL "$url")
 
-    # Extract all sdns:// stamps
-    local stamps
-    stamps=$(echo "$content" | grep -o 'sdns://[A-Za-z0-9_-]*' || true)
-
-    if [ -z "$stamps" ]; then
-        echo "Warning: No DNS stamps found in the file" >&2
-        exit 0
-    fi
-
-    local count=0
-    while IFS= read -r stamp; do
-        [ -z "$stamp" ] && continue
-
-        # Decode the stamp
-        local hostname
-        if hostname=$(decode_stamp "$stamp" 2>/dev/null); then
-            [ -n "$hostname" ] && classify_and_save "$hostname"
-            count=$((count + 1))
+        if [ -z "$content" ]; then
+            echo "  Warning: Failed to download $filename" >&2
+            continue
         fi
-    done <<< "$stamps"
 
-    echo "Processed $count DNS stamps"
+        # Extract all sdns:// stamps
+        local stamps
+        stamps=$(echo "$content" | grep -o 'sdns://[A-Za-z0-9_-]*' || true)
 
-    # Sort and deduplicate output files
-    for file in "$DOMAINS_FILE" "$IPV4_FILE" "$IPV6_FILE"; do
+        if [ -z "$stamps" ]; then
+            echo "  Warning: No DNS stamps found in $filename" >&2
+            continue
+        fi
+
+        local count=0
+        while IFS= read -r stamp; do
+            [ -z "$stamp" ] && continue
+
+            # Save the stamp to sdns.txt
+            echo "$stamp" >> "$SDNS_FILE"
+
+            # Decode the stamp and extract hostname/IP
+            local hostname
+            if hostname=$(decode_stamp "$stamp" 2>/dev/null); then
+                [ -n "$hostname" ] && classify_and_save "$hostname"
+                count=$((count + 1))
+            fi
+        done <<< "$stamps"
+
+        echo "  Processed $count DNS stamps from $filename"
+        total_count=$((total_count + count))
+    done
+
+    echo ""
+    echo "Total processed: $total_count DNS stamps"
+    echo ""
+
+    # Sort and deduplicate all output files
+    for file in "$SDNS_FILE" "$DOMAINS_FILE" "$IPV4_FILE" "$IPV6_FILE"; do
         if [ -s "$file" ]; then
             sort -u "$file" -o "$file"
             local line_count
@@ -163,6 +286,7 @@ main() {
         fi
     done
 
+    echo ""
     echo "Done!"
 }
 
