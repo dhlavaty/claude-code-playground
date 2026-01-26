@@ -53,11 +53,11 @@ chmod +x parse-dnscrypt-stamps.sh
 
 ## Expected Output
 
-Typical run processes ~1,000+ stamps producing:
-- `sdns.txt`: All unique stamps (~1,000+ entries)
-- `domains.txt`: Domain names (~60-80 entries)
-- `ipv4.txt`: IPv4 addresses (~300-400 entries)
-- `ipv6.txt`: IPv6 addresses (~250-350 entries)
+Typical run processes ~1,100+ stamps from all 7 sources producing:
+- `sdns.txt`: All unique stamps (~1,080 entries)
+- `domains.txt`: Domain names (~80 entries)
+- `ipv4.txt`: IPv4 addresses (~330 entries)
+- `ipv6.txt`: IPv6 addresses (~290 entries)
 
 Stamps with both IP address and hostname fields (e.g., DoH, DoT, DoQ protocols) will contribute entries to both the IP and domain output files.
 

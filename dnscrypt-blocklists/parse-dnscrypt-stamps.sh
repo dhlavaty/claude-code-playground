@@ -6,7 +6,11 @@ set -euo pipefail
 
 # DNSCrypt resolver list sources
 readonly RESOLVER_URLS=(
+    "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/onion-services.md"
+    "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/opennic.md"
+    "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/odoh-relays.md"
     "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/odoh-servers.md"
+    "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/parental-control.md"
     "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/public-resolvers.md"
     "https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/relays.md"
 )
@@ -92,8 +96,9 @@ decode_stamp() {
             # Standard protocols with props field
             # Format: protocol || props || LP(addr) || ...
             offset=18  # Skip protocol (2) + props (16)
-            addr=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
-            [ -z "$addr" ] && return 1
+
+            # Try to extract addr (may be empty for some stamps)
+            addr=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null || echo "")
 
             # For protocols 02, 03, 04 (DoH, DoT, DoQ), there's also a hostname field
             if [[ "$protocol" =~ ^(02|03|04)$ ]]; then
@@ -118,8 +123,11 @@ decode_stamp() {
                 done
 
                 # Now extract hostname
-                hostname=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
+                hostname=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null || echo "")
             fi
+
+            # Must have at least addr or hostname
+            [ -z "$addr" ] && [ -z "$hostname" ] && return 1
             ;;
         81)
             # DNSCrypt relay - no props field
@@ -136,9 +144,10 @@ decode_stamp() {
             [ -z "$hostname" ] && return 1
             ;;
         85|86)
-            # ODoH relay protocols - no props field
-            # Format: protocol || LP(hostname) || ...
-            offset=2  # Skip only protocol
+            # ODoH relay protocols with props field and extra padding
+            # Format: protocol || props || ?? || ?? || LP(hostname) || ...
+            # Note: These have 2 extra bytes after props (observed in actual stamps)
+            offset=22  # Skip protocol (2) + props (16) + padding (4)
             hostname=$(extract_lp_string "$hex_data" "$offset" 2>/dev/null)
             [ -z "$hostname" ] && return 1
             ;;
