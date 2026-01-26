@@ -7,7 +7,7 @@
 1. Downloads the DNSCrypt resolver list (see `DNSCrypt resolvers list` paragraph for lists)
 2. Extracts all DNS stamps (format: `sdns://…`)
 3. Decodes each DNS stamp per the official spec
-4. Extracts hostnames/IP addresses embedded in the stamp (prioritizes IP address if both addr and hostname fields exist)
+4. Extracts hostnames/IP addresses embedded in the stamp (extracts both if both addr and hostname fields exist)
 5. Saves all extracted `sdns://…` stamps in `sdns.txt` text file. Each line contains one stamp.
 6. Saves all decoded hostnames into `domains.txt` text file. Each line contains one domain.
 7. Saves all IPv4 addresses into `ipv4.txt`. Each line contains one IPv4 address.
@@ -34,7 +34,7 @@ The script supports the following DNS stamp protocol types:
 - 0x85: Oblivious DoH relay
 - 0x86: DNS over Oblivious HTTP relay
 
-Stamps that contain both an IP address field and a hostname field should extract both to their respectife output files.
+Stamps that contain both an IP address field and a hostname field should extract both to their respective output files.
 
 ## Requirements:
 
@@ -51,9 +51,11 @@ chmod +x parse-dnscrypt-stamps.sh
 
 Typical run processes ~1,000+ stamps producing:
 - `sdns.txt`: All unique stamps (~1,000+ entries)
-- `domains.txt`: Domain names only (~10-50 entries)
+- `domains.txt`: Domain names (~60-80 entries)
 - `ipv4.txt`: IPv4 addresses (~300-400 entries)
 - `ipv6.txt`: IPv6 addresses (~250-350 entries)
+
+Stamps with both IP address and hostname fields (e.g., DoH, DoT, DoQ protocols) will contribute entries to both the IP and domain output files.
 
 ## Notes & gotchas
 

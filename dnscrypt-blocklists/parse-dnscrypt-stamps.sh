@@ -181,14 +181,20 @@ decode_stamp() {
         fi
     fi
 
-    # Output addr first if present, otherwise hostname
+    # Output both addr and hostname if present (one per line)
+    local output_count=0
     if [ -n "$addr" ]; then
         echo "$addr"
-    elif [ -n "$hostname" ]; then
-        echo "$hostname"
-    else
-        return 1
+        output_count=1
     fi
+    if [ -n "$hostname" ]; then
+        echo "$hostname"
+        output_count=1
+    fi
+
+    # Return error if nothing was output
+    [ $output_count -eq 0 ] && return 1
+    return 0
 }
 
 # Function to classify address as IPv4, IPv6, or domain
@@ -260,10 +266,13 @@ main() {
             # Save the stamp to sdns.txt
             echo "$stamp" >> "$SDNS_FILE"
 
-            # Decode the stamp and extract hostname/IP
-            local hostname
-            if hostname=$(decode_stamp "$stamp" 2>/dev/null); then
-                [ -n "$hostname" ] && classify_and_save "$hostname"
+            # Decode the stamp and extract hostname/IP (may return multiple lines)
+            local decoded_output
+            if decoded_output=$(decode_stamp "$stamp" 2>/dev/null); then
+                # Process each line of output (addr and/or hostname)
+                while IFS= read -r address; do
+                    [ -n "$address" ] && classify_and_save "$address"
+                done <<< "$decoded_output"
                 count=$((count + 1))
             fi
         done <<< "$stamps"
