@@ -305,6 +305,21 @@ main() {
     done
 
     echo ""
+    echo "Converting to JSON format..."
+
+    # Convert all text files to JSON
+    local awk_tool
+    awk_tool="$(command -v awk)"
+
+    for file in "$SDNS_FILE" "$DOMAINS_FILE" "$IPV4_FILE" "$IPV6_FILE"; do
+        if [ -s "$file" ]; then
+            local json_file="${file%.txt}.json"
+            "$awk_tool" 'BEGIN{print "["} {printf "%s\"%s\"", (NR>1?",\n":""), $1} END{print "\n]"}' "$file" > "$json_file"
+            echo "  $(basename "$json_file")"
+        fi
+    done
+
+    echo ""
     echo "Done!"
 }
 

@@ -13,8 +13,7 @@
 7. Saves all IPv4 addresses into `ipv4.txt`. Each line contains one IPv4 address.
 8. Saves all IPv6 addresses into `ipv6.txt`. Each line contains one IPv6 address.
 9. Sorts and deduplicates all output files.
-
-At the end, convert all output text files to JSON format as well.
+10. Converts all text files to JSON format (`sdns.json`, `domains.json`, `ipv4.json`, `ipv6.json`).
 
 ## DNSCrypt resolvers list
 
@@ -56,10 +55,18 @@ chmod +x parse-dnscrypt-stamps.sh
 ## Expected Output
 
 Typical run processes ~1,100+ stamps from all 7 sources producing:
+
+**Text files:**
 - `sdns.txt`: All unique stamps (~1,080 entries)
 - `domains.txt`: Domain names (~80 entries)
 - `ipv4.txt`: IPv4 addresses (~330 entries)
 - `ipv6.txt`: IPv6 addresses (~290 entries)
+
+**JSON files:**
+- `sdns.json`: JSON array of all stamps
+- `domains.json`: JSON array of all domains
+- `ipv4.json`: JSON array of all IPv4 addresses
+- `ipv6.json`: JSON array of all IPv6 addresses
 
 Stamps with both IP address and hostname fields (e.g., DoH, DoT, DoQ protocols) will contribute entries to both the IP and domain output files.
 
@@ -79,12 +86,15 @@ Script:
 
 DNS Stamp encoding protocol is documented at https://dnscrypt.info/stamps-specifications
 
-## Conversion to JSON format
+## JSON Format
 
-To convert `.txt` output file to JSON, use this one-liner:
+The script automatically converts all `.txt` files to JSON format. Each JSON file contains an array of strings.
 
-```sh
-awk_tool="$(command -v awk)"
-
-"${awk_tool}" 'BEGIN{print "["} {printf "%s\"%s\"", (NR>1?",\n":""), $1} END{print "\n]"}' ./ipv4.txt > ./ipv4.json
+Example `ipv4.json` format:
+```json
+[
+"1.0.0.1",
+"1.0.0.2",
+"1.0.0.3"
+]
 ```
