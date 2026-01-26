@@ -14,6 +14,8 @@
 8. Saves all IPv6 addresses into `ipv6.txt`. Each line contains one IPv6 address.
 9. Sorts and deduplicates all output files.
 
+At the end, convert all output text files to JSON format as well.
+
 ## DNSCrypt resolvers list
 
 - https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/onion-services.md
@@ -76,3 +78,13 @@ Script:
 ## Other useful resources
 
 DNS Stamp encoding protocol is documented at https://dnscrypt.info/stamps-specifications
+
+## Conversion to JSON format
+
+To convert `.txt` output file to JSON, use this one-liner:
+
+```sh
+awk_tool="$(command -v awk)"
+
+"${awk_tool}" 'BEGIN{print "["} {printf "%s\"%s\"", (NR>1?",\n":""), $1} END{print "\n]"}' ./ipv4.txt > ./ipv4.json
+```
