@@ -16,8 +16,8 @@
 
 ## DNSCrypt resolvers list
 
-- https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/blob/master/v3/onion-services.md
-- https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/blob/master/v3/opennic.md
+- https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/onion-services.md
+- https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/opennic.md
 - https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/odoh-relays.md
 - https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/odoh-servers.md
 - https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/refs/heads/master/v3/parental-control.md
