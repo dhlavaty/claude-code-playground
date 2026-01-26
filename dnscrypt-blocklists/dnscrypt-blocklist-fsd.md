@@ -34,6 +34,8 @@ The script supports the following DNS stamp protocol types:
 - 0x85: Oblivious DoH relay
 - 0x86: DNS over Oblivious HTTP relay
 
+Stamps that contain both an IP address field and a hostname field should extract both to their respectife output files.
+
 ## Requirements:
 
 - shell script that can run on GitHub CI (using `ubuntu-latest` runner) and can be easily run locally as well
@@ -52,8 +54,6 @@ Typical run processes ~1,000+ stamps producing:
 - `domains.txt`: Domain names only (~10-50 entries)
 - `ipv4.txt`: IPv4 addresses (~300-400 entries)
 - `ipv6.txt`: IPv6 addresses (~250-350 entries)
-
-Note: Stamps that contain both an IP address field and a hostname field will have only the IP address extracted, which is why there are more IP entries than domain entries.
 
 ## Notes & gotchas
 
