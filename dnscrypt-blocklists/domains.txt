@@ -1,0 +1,7 @@
+doh.tiarap.org
+doh.tiar.app
+dope.snowstorm.love
+jp.tiarap.org
+jp.tiar.app
+odoh.cloudflare-dns.com
+odoh.crypto.sx
