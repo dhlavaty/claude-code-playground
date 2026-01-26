@@ -2,3 +2,7 @@ domains.txt
 ipv4.txt
 ipv6.txt
 sdns.txt
+domains.json
+ipv4.json
+ipv6.json
+sdns.json
