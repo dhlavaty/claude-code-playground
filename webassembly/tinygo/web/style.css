@@ -1,0 +1,109 @@
+/* Colors for light mode. */
+:root {
+  --background: #f3f4f6;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #d1d5db;
+  --accent: #2563eb;
+  --error: #dc2626;
+}
+
+/* Colors for dark mode (used when the operating system is in dark mode). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #111827;
+    --card: #1f2937;
+    --text: #f9fafb;
+    --muted: #9ca3af;
+    --border: #374151;
+    --accent: #60a5fa;
+    --error: #f87171;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  font-family: system-ui, sans-serif;
+  background: var(--background);
+  color: var(--text);
+}
+
+.card {
+  width: 100%;
+  max-width: 360px;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+  margin: 0;
+}
+
+.subtitle {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+input {
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--text);
+}
+
+button {
+  padding: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.output {
+  min-height: 1.5em;
+  font-size: 1.25rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.output.error {
+  color: var(--error);
+}
+
+.status {
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}

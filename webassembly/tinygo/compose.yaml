@@ -1,0 +1,7 @@
+# Start with:  docker compose up --build
+# Then open:   http://localhost:8081
+services:
+  web:
+    build: .
+    ports:
+      - "8081:80"

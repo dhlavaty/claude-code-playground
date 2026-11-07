@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebAssembly Calculator (TinyGo)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <h1>A ÷ B</h1>
+    <p class="subtitle">The division runs in WebAssembly, written in Go and compiled with TinyGo.</p>
+
+    <form id="calculator">
+      <label>
+        A
+        <input id="a" type="text" inputmode="decimal" placeholder="e.g. 7.5" autocomplete="off">
+      </label>
+      <label>
+        B
+        <input id="b" type="text" inputmode="decimal" placeholder="e.g. 2.5" autocomplete="off">
+      </label>
+      <!-- Disabled until the WebAssembly module has loaded (see app.js). -->
+      <button id="divide" type="submit" disabled>Divide</button>
+    </form>
+
+    <p id="output" class="output"></p>
+    <p id="status" class="status">Loading WebAssembly…</p>
+  </main>
+
+  <!-- 1. TinyGo's helper script: defines the Go class that starts main.wasm. -->
+  <script src="wasm_exec.js"></script>
+  <!-- 2. Our own code: loads main.wasm and connects the form to it. -->
+  <script src="app.js"></script>
+</body>
+</html>
